@@ -44,3 +44,4 @@ Here are some parameters to help you make your own config and test your data:
 This implementation is based on:
 * https://github.com/andreas128/RePaint
 * https://github.com/UCSB-NLP-Chang/CoPaint
+* https://github.com/openai/guided-diffusion
