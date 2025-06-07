@@ -1,0 +1,10 @@
+images
+checkpoints
+datasets/lama-celeba
+datasets/imagenet100
+datasets/mask/20
+datasets/mask/40
+datasets/mask/60
+datasets/mask/half
+datasets/mask/ex64
+.idea

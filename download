@@ -1,0 +1,71 @@
+#!/bin/bash
+
+(
+# download pretrained models
+mkdir -p checkpoints
+cd checkpoints
+
+# model pretrained on ImageNet
+wget https://openaipublic.blob.core.windows.net/diffusion/jul-2021/256x256_diffusion_uncond.pt  # Trained by OpenAI
+
+# model pretrained on CelebA
+gdown https://drive.google.com/uc?id=1norNWWGYP3EZ_o05DmoW1ryKuKMmhlCX
+)
+
+prepare_celeba() {
+    # Copied from [Lama](https://github.com/saic-mdal/lama)
+    BASENAME="lama-celeba"
+    mkdir -p $BASENAME
+
+    unzip data256x256.zip -d ${BASENAME}
+
+    # Reindex
+    for i in `echo {00001..30000}`
+    do
+        mv ${BASENAME}'/data256x256/'$i'.jpg' ${BASENAME}'/data256x256/'$[10#$i - 1]'.jpg'
+    done
+
+    # Split: split train -> train & val
+    cat lama_split/train_shuffled.flist | shuf > ${BASENAME}/temp_train_shuffled.flist
+    cat ${BASENAME}/temp_train_shuffled.flist | head -n 2000 > ${BASENAME}/val_shuffled.flist
+    cat ${BASENAME}/temp_train_shuffled.flist | tail -n +2001 > ${BASENAME}/train_shuffled.flist
+    cat lama_split/val_shuffled.flist > ${BASENAME}/visual_test_shuffled.flist
+
+    mkdir ${BASENAME}/train_256/
+    mkdir ${BASENAME}/val_source_256/
+    mkdir ${BASENAME}/visual_test_source_256/
+
+    cat ${BASENAME}/train_shuffled.flist | xargs -I {} mv ${BASENAME}/data256x256/{} ${BASENAME}/train_256/
+    cat ${BASENAME}/val_shuffled.flist | xargs -I {} mv ${BASENAME}/data256x256/{} ${BASENAME}/val_source_256/
+    cat ${BASENAME}/visual_test_shuffled.flist | xargs -I {} mv ${BASENAME}/data256x256/{} ${BASENAME}/visual_test_source_256/
+}
+
+# download celeba data
+(
+mkdir -p datasets
+cd datasets
+gdown https://drive.google.com/uc?id=1O89DVCoWsMhrIF3G8-wMOJ0h7LukmMdP
+sleep 1
+prepare_celeba
+rm data256x256.zip
+)
+
+# download imagenet100 data
+(
+cd datasets
+mkdir -p imagenet100
+gdown https://drive.google.com/uc?id=1zICpQWK07xF3JnPO34-y0HeWWJ8wCe1C
+sleep 1
+unzip test.zip -d imagenet100
+rm test.zip
+)
+
+# download masks
+(
+cd datasets
+mkdir -p mask
+gdown https://drive.google.com/uc?id=1WxymZIzsYctht63B1gxIgx6E881FPs9L
+sleep 1
+unzip mask.zip -d mask
+rm mask.zip
+)

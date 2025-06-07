@@ -1,0 +1,13 @@
+#!/bin/bash
+
+python main.py --config_file configs/celebahq.yaml --mask_type 20
+python main.py --config_file configs/celebahq.yaml --mask_type 40
+python main.py --config_file configs/celebahq.yaml --mask_type 60
+python main.py --config_file configs/celebahq.yaml --mask_type half
+python main.py --config_file configs/celebahq.yaml --mask_type ex64
+
+python main.py --config_file configs/imagenet.yaml --mask_type 20
+python main.py --config_file configs/imagenet.yaml --mask_type 40
+python main.py --config_file configs/imagenet.yaml --mask_type 60
+python main.py --config_file configs/imagenet.yaml --mask_type half
+python main.py --config_file configs/imagenet.yaml --mask_type ex64
