@@ -53,7 +53,7 @@ resample:
 
 optimize_xt:
   optimize_xt: true
-  num_iteration_optimize_xt: 0
+  num_iteration_optimize_xt: 1
   lr_xt: 0.02
   lr_xt_decay: 1.012
   use_smart_lr_xt_decay: true

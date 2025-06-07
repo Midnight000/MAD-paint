@@ -79,14 +79,14 @@ def prepare_classifier(conf, device):
     return classifier
 
 
-def prepare_data(dataset_name, dataset_path="", mask_type="half", dataset_starting_index=-1, dataset_ending_index=-1, split=None):
-    if dataset_path!="":
-        datas = load_image(mask_type=mask_type, dataset_path=dataset_path)
-    elif dataset_name == "celebahq":
-        datas = load_lama_celebahq(mask_type=mask_type)
-    elif dataset_name == "imagenet":
-        datas = load_imagenet(mask_type=mask_type, split='test')
+def prepare_data(dataset_name, dataset_path="", mask_type="half", num_samples=100, dataset_starting_index=-1, dataset_ending_index=-1, split=None):
 
+    if dataset_path!="":
+        datas = load_image(mask_type=mask_type, dataset_path=dataset_path, max_len=num_samples)
+    elif dataset_name == "celebahq":
+        datas = load_lama_celebahq(mask_type=mask_type, max_len=num_samples)
+    elif dataset_name == "imagenet":
+        datas = load_imagenet(mask_type=mask_type, split='test', max_len=num_samples)
 
     dataset_starting_index = (
         0 if dataset_starting_index == -1 else dataset_starting_index
@@ -132,6 +132,7 @@ def main():
         config.dataset_name,
         config.dataset_path,
         config.mask_type,
+        config.num_samples,
         config.dataset_starting_index,
         config.dataset_ending_index,
         config.split
