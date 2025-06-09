@@ -25,7 +25,7 @@ algorithm: mad
 resume: false # will load previous results if there are some
 mode: inpaint
 debug: false
-missing_info: true
+mask_aware: true
 device: 0
 
 madpaint:

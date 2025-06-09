@@ -187,7 +187,7 @@ def main():
             "gt_keep_mask": batch["mask"].repeat(batch_size, 1, 1, 1),
             "outdir": config.outdir,
         }
-        if config.missing_info:
+        if config.mask_aware:
             mask = model_kwargs["gt_keep_mask"]
             mask = (mask * 255).to(torch.uint8)
             mask = mask.squeeze().cpu().numpy()
