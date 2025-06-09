@@ -40,8 +40,29 @@ Here are some parameters to help you make your own config and test your data:
 - `outdir`: Path to the folder which is used to save output images.
 - `madpaint.a, madpaint.k, madpaint.p, madpaint.max`'`: Parameters described in paper
 
+## Citation
+```
+@inproceedings{jiang2025icmr,
+  title        = {MAD-paint: Mask-Aware Diffusion Sampling for Image Inpainting},
+  author       = {Shipeng Jiang, Jingwei Qv, Bingyao Huang},
+  year         = {2025},
+  month        = jun,
+  booktitle    = {Proceedings of the 2025 International Conference on Multimedia Retrieval (ICMR '25)},
+  publisher    = {ACM},
+  address      = {Chicago, IL, USA},
+  doi          = {10.1145/3731715.3733381},
+  isbn         = {979-8-4007-1877-9/2025/06},
+  conference   = {ICMR '25},
+  location     = {Chicago, IL, USA},
+  date         = {June 30-July 3, 2025}
+}
+```
+
 ## References
 This implementation is based on:
 * https://github.com/andreas128/RePaint
 * https://github.com/UCSB-NLP-Chang/CoPaint
 * https://github.com/openai/guided-diffusion
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

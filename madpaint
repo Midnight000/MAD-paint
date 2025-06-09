@@ -1,13 +1,13 @@
 #!/bin/bash
 
-python main.py --config_file configs/celebahq.yaml --mask_type 20
-python main.py --config_file configs/celebahq.yaml --mask_type 40
-python main.py --config_file configs/celebahq.yaml --mask_type 60
-python main.py --config_file configs/celebahq.yaml --mask_type half
-python main.py --config_file configs/celebahq.yaml --mask_type ex64
+python main.py --config_file configs/celebahq.yaml --mask_type 20 --outdir ./images/celeba-hq/20
+python main.py --config_file configs/celebahq.yaml --mask_type 40 --outdir ./images/celeba-hq/40
+python main.py --config_file configs/celebahq.yaml --mask_type 60 --outdir ./images/celeba-hq/60
+python main.py --config_file configs/celebahq.yaml --mask_type half --outdir ./images/celeba-hq/half
+python main.py --config_file configs/celebahq.yaml --mask_type ex64 --outdir ./images/celeba-hq/ex64
 
-python main.py --config_file configs/imagenet.yaml --mask_type 20
-python main.py --config_file configs/imagenet.yaml --mask_type 40
-python main.py --config_file configs/imagenet.yaml --mask_type 60
-python main.py --config_file configs/imagenet.yaml --mask_type half
-python main.py --config_file configs/imagenet.yaml --mask_type ex64
+python main.py --config_file configs/imagenet.yaml --mask_type 20 --outdir ./images/imagenet/20
+python main.py --config_file configs/imagenet.yaml --mask_type 40 --outdir ./images/imagenet/40
+python main.py --config_file configs/imagenet.yaml --mask_type 60 --outdir ./images/imagenet/60
+python main.py --config_file configs/imagenet.yaml --mask_type half --outdir ./images/imagenet/half
+python main.py --config_file configs/imagenet.yaml --mask_type ex64 --outdir ./images/imagenet/ex64
