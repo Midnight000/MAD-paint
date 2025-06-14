@@ -44,7 +44,7 @@ Here are some parameters to help you make your own config and test your data:
 ```
 @inproceedings{jiang2025icmr,
   title        = {MAD-paint: Mask-Aware Diffusion Sampling for Image Inpainting},
-  author       = {Shipeng Jiang, Jingwei Qv, Bingyao Huang},
+  author       = {Shipeng Jiang, Jingwei Qu, Bingyao Huang},
   year         = {2025},
   month        = jun,
   booktitle    = {Proceedings of the 2025 International Conference on Multimedia Retrieval (ICMR '25)},
