@@ -25,7 +25,8 @@ algorithm: mad
 resume: false # will load previous results if there are some
 mode: inpaint
 debug: false
-mask_aware: true
+mask_aware: false
+pixel_based: false
 device: 0
 
 madpaint:
@@ -52,8 +53,9 @@ resample:
   keep_n_samples: 2 # n_samples images would be generated, while keep_n_samples images would be returned.
 
 optimize_xt:
+  loss: L2
   optimize_xt: true
-  num_iteration_optimize_xt: 1
+  num_iteration_optimize_xt: 0
   lr_xt: 0.02
   lr_xt_decay: 1.012
   use_smart_lr_xt_decay: true

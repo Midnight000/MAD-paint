@@ -845,14 +845,30 @@ class MAD_paint_Sampler(DDIMSampler):
         else:
             self.steps = ddim_timesteps(**conf["ddim.schedule_params"])
 
+        self.loss_name = conf.get("optimize_xt.loss", "L2")
         self.mode = conf.get("mode", "inpaint")
         self.scale = conf.get("scale", 0)
         self.a = conf.get("madpaint.a", 0.3)
+        self.mask_aware = conf.get("mask_aware", True)
+        self.pixel_based = conf.get("pixel_based", True)
 
+        def loss_L1(_x0, _pred_x0, _mask, matrix):
+            ret = torch.sum(torch.abs(_x0 * _mask - _pred_x0 * _mask) * matrix)
+            return ret
         def loss_L2(_x0, _pred_x0, _mask, matrix):
             ret = torch.sum((_x0 * _mask - _pred_x0 * _mask) ** 2 * matrix)
             return ret
+        LPIPS_func = lpips.LPIPS(net="alex").to(conf.get("device"))
+        def loss_LPIPS(_x0, _pred_x0, _mask):
+            return LPIPS_func.forward(_x0 * _mask + _pred_x0 * (1 - _mask), _pred_x0)
+        SSIM_func = SSIM()
+        def loss_SSIM(x0, _pred_x0, _mask):
+            return 1-SSIM_func.forward(x0 * _mask, _pred_x0 * _mask)
+
+        self.loss_L1 = loss_L1
         self.loss_L2 = loss_L2
+        self.loss_LPIPS = loss_LPIPS
+        self.loss_SSIM = loss_SSIM
 
     def p_sample(
         self,
@@ -970,17 +986,28 @@ class MAD_paint_Sampler(DDIMSampler):
             alpha_prev = _extract_into_tensor(
                 self.alphas_cumprod, _prev_t, _x.shape)
             # MAD-paint sigmas with time constraint
-            sigmas = (
-                (model_kwargs["lost_info"] ** self.a + (1 - model_kwargs["lost_info"] ** self.a) * (1 - model_kwargs["lost_info_mask"])) *
-                torch.sqrt(1 - alpha_prev) * (250 - index) / 250 +
-                index / 250 * torch.sqrt((1 - alpha_prev) / (1 - alpha_t)) * torch.sqrt((1 - alpha_t / alpha_prev))
-            )
+            if self.mask_aware == True:
+                if self.pixel_based:
+                    # sigmas = ((250 - index) / 250 * (model_kwargs["lost_info"] ** self.a) + (250 - index) / 250 * (1 - model_kwargs["lost_info"] ** self.a) * (1 - model_kwargs["lost_info_mask"]) ** self.a) * torch.sqrt(1 - alpha_prev)
+                    sigmas = (
+                        (model_kwargs["lost_info"] ** self.a + (1 - model_kwargs["lost_info"] ** self.a) * (1 - model_kwargs["lost_info_mask"])) *
+                        torch.sqrt(1 - alpha_prev) * (model_kwargs["steps"] - index) / model_kwargs["steps"] +
+                        index / model_kwargs["steps"] * torch.sqrt((1 - alpha_prev) / (1 - alpha_t)) * torch.sqrt((1 - alpha_t / alpha_prev))
+                    )
+                    print('s')
+                else:
+                    sigmas = torch.sqrt(1 - (torch.ones_like(model_kwargs["weight_mask_known"]) * model_kwargs["lost_info"] ** self.a)) * torch.sqrt(1 - alpha_prev)
+            else :
+                sigmas=(
+                    self.ddim_sigma
+                    * torch.sqrt((1 - alpha_prev) / (1 - alpha_t))
+                    * torch.sqrt((1 - alpha_t / alpha_prev))
+                )
+                # sigmas=(
+                #     torch.sqrt(1 - alpha_prev)
+                # )
+            # sigmas = 0.8 * torch.sqrt(1 - alpha_prev)
             # original sigmas
-            # sigmas=(
-            #     self.ddim_sigma
-            #     * torch.sqrt((1 - alpha_prev) / (1 - alpha_t))
-            #     * torch.sqrt((1 - alpha_t / alpha_prev))
-            # )
             mean_pred = (
                 _pred_x0 * torch.sqrt(alpha_prev)
                 + torch.sqrt(1 - alpha_prev - sigmas**2 + 1e-6) * _et  # dir_xt
@@ -991,10 +1018,40 @@ class MAD_paint_Sampler(DDIMSampler):
             _x_prev = mean_pred + noise * sigmas * nonzero_mask
             return _x_prev
 
+        def get_loss(x0, _pred_x0, _mask, loss_name):
+            if loss_name == "L1":
+                return self.loss_L1(x0, pred_x0, mask, torch.ones_like(model_kwargs["gt_keep_mask"]))
+            elif loss_name == "L2":
+                return self.loss_L2(x0, pred_x0, mask, torch.ones_like(model_kwargs["gt_keep_mask"]))
+            elif loss_name == "LPIPS":
+                return self.loss_LPIPS(x0, pred_x0, mask)
+            elif loss_name == "SSIM":
+                return self.loss_SSIM(x0, pred_x0, mask)
+
         B, C = x.shape[:2]
         assert t.shape == (B,)
         x0 = model_kwargs["gt"]
         mask = model_kwargs["gt_keep_mask"]
+        #
+        # alpha_t = _extract_into_tensor(self.alphas_cumprod, t, model_kwargs["gt"].shape)
+        # gt_weight = torch.sqrt(alpha_t)
+        # gt_part = gt_weight * model_kwargs["gt"]
+        # ################固定噪声
+        # noise_weight = torch.sqrt((1 - alpha_t))
+        # # noise_part = noise_weight * fix_noise
+        # ################
+        # noise_part = noise_weight * torch.randn_like(x)
+        # weighed_gt = gt_part + noise_part
+        # directory = model_kwargs["outdir"] + '/reverse/weighted_gt' + str(model_kwargs["image_name"])
+        # make_dirs(directory)
+        # img = weighed_gt
+        # img = ((img + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+        # img = img.permute(0, 2, 3, 1)
+        # img = img.contiguous().squeeze()
+        # img = img.cpu().numpy()
+        # img = Image.fromarray(img, mode='RGB')
+        # full_p1 = os.path.join(directory, 'weighted_gt' + '_' + str(index).zfill(6) + '.jpg')
+        # img.save(full_p1)
 
         # condition mean
         if cond_fn is not None:
@@ -1024,20 +1081,48 @@ class MAD_paint_Sampler(DDIMSampler):
             pred_x0 = get_predx0(
                 _x=x, _t=t, _et=e_t, interval_num=self.mid_interval_num
             )
-            prev_loss = self.loss_L2(x0, pred_x0, mask, model_kwargs["gt_keep_mask"])
+            prev_loss = get_loss(x0, pred_x0, mask, self.loss_name)
+
+            # directory = model_kwargs["outdir"] + '/reverse/pred' + str(model_kwargs["image_name"])
+            # make_dirs(directory)
+            # tmp_pred = pred_x0
+            # tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+            # tmp_pred = tmp_pred.permute(0, 2, 3, 1)
+            # tmp_pred = tmp_pred.contiguous().squeeze()
+            # tmp_pred = tmp_pred.cpu().numpy()
+            # tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
+            # full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
+            # tmp_pred.save(full_p2)
+            # directory = model_kwargs["outdir"] + '/reverse/x' + str(model_kwargs["image_name"])
+            # make_dirs(directory)
+            # tmp_pred = origin_x
+            # tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+            # tmp_pred = tmp_pred.permute(0, 2, 3, 1)
+            # tmp_pred = tmp_pred.contiguous().squeeze()
+            # tmp_pred = tmp_pred.cpu().numpy()
+            # tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
+            # full_p3 = os.path.join(directory, 'x' + '_' + str(index).zfill(6) + '.jpg')
+            # tmp_pred.save(full_p3)
+
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
             for step in range(self.num_iteration_optimize_xt):
-                loss_L2 = self.loss_L2(x0, pred_x0, mask, torch.ones_like(model_kwargs["weight_mask_known"]))
+                norm_coef = torch.norm(self.loss_L2(x0, pred_x0, mask, torch.ones_like(model_kwargs["gt_keep_mask"])), p=2).item()
                 loss_P = coef_xt_reg * reg_fn(origin_x, x)
-                loss = loss_L2 + loss_P
-                x_grad_P = torch.autograd.grad(loss_P, x, retain_graph=True, create_graph=False)[0].detach()
-                x_grad_L2 = torch.autograd.grad(loss_L2, x, retain_graph=True, create_graph=False)[0].detach()
-                new_x = x - lr_xt * (x_grad_L2 + x_grad_P)
+                loss_main = get_loss(x0, pred_x0, mask, self.loss_name)
+                loss = loss_main + loss_P
+                x_grad_P = torch.autograd.grad(loss_P, x, retain_graph=False, create_graph=False)[0].detach()
+                if self.loss_name == "SSIM":
+                    x_grad_main = torch.autograd.grad(loss_main * norm_coef / torch.norm(loss_main, p=2).item(), x, retain_graph=False, create_graph=False)[0].detach()
+                elif self.loss_name == "LPIPS":
+                    x_grad_main = index / 250 * 0.5 * torch.autograd.grad(0.9 * self.loss_L2(x0, pred_x0, mask, torch.ones_like(model_kwargs["gt_keep_mask"])) + 0.1 * loss_main * norm_coef / torch.norm(loss_main, p=2).item(), x, retain_graph=False, create_graph=False)[0].detach()
+                else :
+                    x_grad_main = torch.autograd.grad(loss_main, x, retain_graph=False, create_graph=False)[0].detach()
+                new_x = x - lr_xt * (x_grad_main + x_grad_P)
 
                 logging_info(
-                    f"grad norm: {torch.norm(x_grad_L2, p=2).item():.3f} "
-                    f"{torch.norm(x_grad_L2 * mask, p=2).item():.3f} "
-                    f"{torch.norm(x_grad_L2 * (1. - mask), p=2).item():.3f}"
+                    f"grad norm: {torch.norm(x_grad_main, p=2).item():.3f} "
+                    f"{torch.norm(x_grad_main * mask, p=2).item():.3f} "
+                    f"{torch.norm(x_grad_main * (1. - mask), p=2).item():.3f}"
                 )
                 loop = 0
                 while self.use_adaptive_lr_xt and True:
@@ -1047,8 +1132,13 @@ class MAD_paint_Sampler(DDIMSampler):
                         pred_x0 = get_predx0(
                             new_x, _t=t, _et=e_t, interval_num=self.mid_interval_num
                         )
-                        new_loss = self.loss_L2(x0, pred_x0, mask, torch.ones_like(model_kwargs["weight_mask_known"])) + coef_xt_reg * reg_fn(origin_x, new_x)
-                        if (not torch.isnan(new_loss) and new_loss <= loss) or loop > 10:
+                        new_loss_P = coef_xt_reg * reg_fn(origin_x, new_x)
+                        new_loss_main = get_loss(x0, pred_x0, mask, self.loss_name)
+                        print(new_loss_main)
+                        new_loss = new_loss_main + new_loss_P
+                        if (not torch.isnan(new_loss) and new_loss <= loss) or loop > 3:
+                            if loop > 3:
+                                new_x = x
                             break
                         else:
                             lr_xt *= 0.8
@@ -1057,19 +1147,19 @@ class MAD_paint_Sampler(DDIMSampler):
                                 % (loss.item(), new_loss.item(), lr_xt)
                             )
                             del new_x, e_t, pred_x0, new_loss
-                            new_x = x - lr_xt * (x_grad_L2 + x_grad_P)
+                            new_x = x - lr_xt * (x_grad_main + x_grad_P)
                 x = new_x.detach().requires_grad_()
                 e_t = get_et(x, _t=t)
                 pred_x0 = get_predx0(
                     x, _t=t, _et=e_t, interval_num=self.mid_interval_num
                 )
-                del loss, x_grad_L2, x_grad_P, new_x
+                del loss, x_grad_main, x_grad_P, new_x
                 torch.cuda.empty_cache()
 
 
         # after optimize
         with torch.no_grad():
-            new_loss = self.loss_L2(x0, pred_x0, mask, model_kwargs["gt_keep_mask"]).item()
+            new_loss = get_loss(x0, pred_x0, mask, self.loss_name).item()
             logging_info("Loss Change: %.3lf -> %.3lf" % (prev_loss, new_loss))
             pred_x0, e_t, x = pred_x0.detach(), e_t.detach(), x.detach()
             del origin_x, prev_loss
@@ -1228,3 +1318,4 @@ class MAD_paint_Sampler(DDIMSampler):
             lr_xt=lr_xt,
             coef_xt_reg=coef_xt_reg,
         )["x"]
+

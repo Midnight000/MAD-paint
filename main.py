@@ -182,6 +182,7 @@ def main():
         # prepare batch data for processing
         batch = {"image": image.to(device), "mask": mask.to(device)}
         model_kwargs = {
+            "steps": config.get("ddim.schedule_params.num_inference_steps"),
             "image_name":image_name,
             "gt": batch["image"].repeat(batch_size, 1, 1, 1),
             "gt_keep_mask": batch["mask"].repeat(batch_size, 1, 1, 1),
