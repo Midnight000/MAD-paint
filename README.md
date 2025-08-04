@@ -19,7 +19,7 @@ cd MAD-paint
 ### Download pretrained models (provided by [OpenAI](https://github.com/openai/guided-diffusion) and [Repaint](https://github.com/andreas128/RePaint)) and test data
 ```
 chmod +x download
-bash download
+bash scripts/download
 ```
 
 
@@ -27,7 +27,12 @@ bash download
 ### Inpainting with `MAT-paint`
 To test on CelebAHQ and ImageNet, you can run
 ```
-bash madpaint
+bash scripts/madpaint
+```
+To reproduce our ablation study, you can run
+```
+bash scripts/ablation_celeb
+bash scripts/ablation_imagenet
 ```
 To inpaint your own images, you can put your images under datasets/examples, and masks under datasets/mask/examples, then run
 ```
